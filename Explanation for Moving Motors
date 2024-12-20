@@ -1,0 +1,181 @@
+from microbit import *
+import ustruct
+import math
+
+# Explanation: 
+# from microbit import *: Imports micro:bit-specific functions like display, Image, sleep, and i2c.
+import ustruct and import math: Provides functions for handling binary data (ustruct) and mathematical operations (math).
+
+PCA9685_ADDRESS = 0x41
+MODE1 = 0x00
+MODE2 = 0x01
+SUBADR1 = 0x02
+SUBADR2 = 0x03
+SUBADR3 = 0x04
+PRESCALE = 0xFE
+LED0_ON_L = 0x06
+LED0_ON_H = 0x07
+LED0_OFF_L = 0x08
+LED0_OFF_H = 0x09
+ALL_LED_ON_L = 0xFA
+ALL_LED_ON_H = 0xFB
+ALL_LED_OFF_L = 0xFC
+ALL_LED_OFF_H = 0xFD
+
+# MODE1 & MODE2: Configuration registers that set up the PCA9685’s operational modes.
+# LED0_ON_L/H and LED0_OFF_L/H: Define when each PWM channel turns on and off within its 4096-step cycle. Since there are 16 channels, you access them by adding multiples of 4 (e.g., LED0 for channel 0, LED1 for channel 1, etc.)
+# PRESCALE: Controls the frequency of the PWM output.
+# ALL_LED_* registers: Allow setting all channels at once.
+
+RESTART = 0x80
+SLEEP = 0x10
+ALLCALL = 0x01
+INVRT = 0x10
+OUTDRV = 0x04
+RESET = 0x00
+
+# These are bit masks used to configure modes. For example, SLEEP puts the chip to sleep, and OUTDRV sets the output driver configuration.
+
+class PCA9685():
+    """PCA9685 PWM LED/servo controller."""
+
+# A class to encapsulate all the functionality of the PCA9685 chip. It handles initialization, setting frequencies, and controlling PWM outputs.
+
+def __init__(self, address=PCA9685_ADDRESS):
+    self.address = address
+    # Reset the PCA9685
+    i2c.write(self.address, bytearray([MODE1, RESET]))
+    
+    # Turn off all PWM signals initially
+    self.set_all_pwm(0, 0)
+    
+    # Set the chip mode
+    i2c.write(self.address, bytearray([MODE2, OUTDRV]))
+    i2c.write(self.address, bytearray([MODE1, ALLCALL]))
+    sleep(5)
+    
+    # Read the MODE1 register
+    i2c.write(self.address, bytearray([MODE1]))
+    mode1 = i2c.read(self.address, 1)
+    mode1 = ustruct.unpack('<H', mode1)[0]
+    
+    # Clear the SLEEP bit to wake up the chip
+    mode1 = mode1 & ~SLEEP
+    i2c.write(self.address, bytearray([MODE1, mode1]))
+    sleep(5)
+
+# What’s happening here:
+# Reset the device: Writing RESET to MODE1 ensures the PCA9685 starts from a known default state.
+# set_all_pwm(0, 0): Turns off all channels so no servo or motor is active initially.
+# OUTDRV: Sets the output driver mode—usually “totem pole” which is suitable for driving servos and LEDs.
+# ALLCALL: Enables the all-call address so the PCA9685 responds to certain I2C broadcasts.
+# Waking up the chip: The chip starts in sleep mode, so we clear the SLEEP bit to wake it and wait for it to stabilize.
+
+def set_pwm_freq(self, freq_hz):
+    # Calculate the prescale value for the desired frequency
+    prescaleval = 25000000.0    # Internal 25MHz oscillator
+    prescaleval /= 4096.0       # 12-bit resolution
+    prescaleval /= float(freq_hz)
+    prescaleval -= 1.0
+    
+    prescale = int(math.floor(prescaleval + 0.5))
+    
+    # Change the mode to sleep before changing prescale
+    i2c.write(self.address, bytearray([MODE1]))
+    oldmode = i2c.read(self.address, 1)
+    oldmode = ustruct.unpack('<H', oldmode)[0]
+    newmode = (oldmode & 0x7F) | 0x10  # Set sleep bit
+    
+    i2c.write(self.address, bytearray([MODE1, newmode]))  # go to sleep
+    i2c.write(self.address, bytearray([PRESCALE, prescale]))
+    
+    # Restore the original mode and wake up
+    i2c.write(self.address, bytearray([MODE1, oldmode]))
+    sleep(5)
+    i2c.write(self.address, bytearray([MODE1, oldmode | 0x80]))
+
+def set_pwm(self, channel, on, off):
+    if on is None or off is None:
+        # If we just want to read the current settings
+        i2c.write(self.address, bytearray([LED0_ON_L+4*channel]))
+        data = i2c.read(self.address, 4)
+        return ustruct.unpack('<HH', data)
+    # Otherwise, write new on/off values
+    i2c.write(self.address, bytearray([LED0_ON_L+4*channel, on & 0xFF]))
+    i2c.write(self.address, bytearray([LED0_ON_H+4*channel, on >> 8]))
+    i2c.write(self.address, bytearray([LED0_OFF_L+4*channel, off & 0xFF]))
+    i2c.write(self.address, bytearray([LED0_OFF_H+4*channel, off >> 8]))
+
+# Each channel has a 12-bit resolution (0-4095). The “on” and “off” values determine at which step in the 4096-step cycle the signal goes high and low, setting the duty cycle.
+# on = the step at which the signal turns on
+# off = the step at which it turns off
+
+def set_all_pwm(self, on, off):
+    i2c.write(self.address, bytearray([ALL_LED_ON_L, on & 0xFF]))
+    i2c.write(self.address, bytearray([ALL_LED_ON_H, on >> 8]))
+    i2c.write(self.address, bytearray([ALL_LED_OFF_L, off & 0xFF]))
+    i2c.write(self.address, bytearray([ALL_LED_OFF_H, off >> 8]))
+
+# This sets the same on/off values for all 16 channels simultaneously.
+
+def duty(self, index, value=None, invert=False):
+    # If value is None, it reads the current duty.
+    # If value is given, it sets the duty cycle accordingly.
+    # "invert" can flip the polarity of the output.
+    # This method simplifies reading and writing the duty cycle without worrying about the raw on/off steps. A value of 0 means fully off; 4095 means fully on, and anything in between is a partial duty cycle.
+
+pwm = PCA9685()
+# Initialise the PCA9685 using the default address (0x41).
+# Creates an instance of the PCA9685 class, setting it up and ready for use.
+
+servo_min = 150  # Min pulse length (out of 4096)
+servo_max = 600  # Max pulse length
+# Configure min and max servo pulse lengths
+# Servos typically respond to pulse widths between ~500µs (0°) and ~2500µs (180°). Converted to the PCA9685’s 4096 steps, this corresponds to certain counts. Here, 150 and 600 are chosen values that define the servo’s usable range. 
+
+# Set frequency to 60hz, good for servos.
+pwm.set_pwm_freq(60)
+# A 60 Hz frequency (a ~16.67ms period) is typical for hobby servos.
+
+pwm.set_pwm(12, 0, 4095)
+pwm.set_pwm(13, 0, 0)
+pwm.set_pwm(15, 0, 4095)
+pwm.set_pwm(14, 0, 0)
+
+These four channels likely correspond to two motor outputs. Typically, each motor on a differential drive robot uses two channels: one for forward and one for backward (or one for speed and one for direction). Setting one channel to 4095 (full on) and the opposite channel to 0 (off) can make the motor spin in a certain direction. Inversely, flipping these values can make it spin the other way.
+
+For instance, channels 12 and 13 might control the left motor. Setting (12: fully on, 13: off) could mean “left motor forward.”
+Similarly, channels 14 and 15 might control the right motor. Setting (15: fully on, 14: off) could mean “right motor forward.”
+By giving full PWM (4095) on one channel and zero on the complementary channel, you are driving the motor fully in one direction.
+
+pwm.set_pwm(3, 0, servo_min)
+sleep(1000)
+pwm.set_pwm(3, 0, servo_max)
+sleep(1000)
+
+Channel 3 is likely attached to a servo (perhaps a steering servo if this is a car). The code first sets the PWM for channel 3 to servo_min which corresponds to one extreme angle of the servo. After a 1-second delay, it sets channel 3 to servo_max which turns the servo to the opposite extreme angle.
+
+This demonstrates how to move a servo using different pulse lengths.
+
+
+## Summary ##
+# Why I2C and PCA9685? The micro:bit only has a limited number of PWM outputs. The PCA9685 expands this capability, offering 16 channels, all controllable over the I2C bus.
+# Why set frequencies and duty cycles? Motors and servos need PWM signals at certain frequencies. Servos expect a certain pulse frequency (around 50-60 Hz), and the duty cycle within that frequency range determines the servo’s position.
+# Why these register values? The PCA9685 is a low-level device that must be configured by writing values to certain registers. These determine how the chip operates (e.g., frequency, sleep mode, output mode).
+# Robot movement logic: By setting some channels fully on and others off, you choose the direction of current flow through the motor driver, making wheels move forward or backward.
+# Servo movement logic: By selecting min and max pulse lengths, you define the servo’s range of motion and then command it to move between these extremes.
+# In essence, this code:
+
+# Initializes and configures a PCA9685 PWM driver.
+# Sets a suitable frequency for driving servos and motors.
+# Controls the duty cycle on certain channels to move motors forward.
+# Adjusts a servo position by changing the PWM pulse width on its channel.
+# All these steps together make the robot “advance”: the motors turn in a direction that moves the robot forward and the servo (if controlling the steering) changes the orientation as commanded.
+
+
+
+
+
+
+
+
