@@ -69,3 +69,8 @@ B) Control Logic
 - An example of an algorithm is the Kalman Filter, which reads past and present data to know the state of the drone and uses its logic to know it's 
 GPS location. 
 ___________________________________________________________________________________________________________________________________________________________
+5. Communication
+- Drone receives communication using Kalman Radio Frequency Technology
+- Drones typically have communication ranges between 1-2km
+- If Drones exceed this limit, modern technology connects it with GPS or Satellite, such that it will receive a message to return to it's user
+
