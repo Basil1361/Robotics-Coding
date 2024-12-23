@@ -1,3 +1,7 @@
 # Gyrometer: How does it work
 # Overview:
-The gyroscope measures 
+The gyroscope measures the angular velocity of the x, y and z planes. Remember, it does not measure the angle; it measures how fast the robot moves for respective planes.
+
+How it works: 
+# Because the accelerometer and gyroscope are built in to IWC
+
