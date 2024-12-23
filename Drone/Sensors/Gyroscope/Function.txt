@@ -1,7 +1,29 @@
 # Gyrometer: How does it work
 # Overview:
-The gyroscope measures the angular velocity of the x, y and z planes. Remember, it does not measure the angle; it measures how fast the robot moves for respective planes.
+The gyroscope measures the angular velocity of the x, y, and z planes. Remember, it does not measure the angle; it measures how fast the robot moves for respective planes.
 
 How it works: 
-# Because the accelerometer and gyroscope are built in to IWC
+# Because the accelerometer and gyroscope are built into IMU, it's better to use an example to help.
+1) MPU-6050 
+- 6-axis motion tracking device, 3-axis for accelerometer, 3-axis for the gyroscope
+2) PinOut
+- VCC supplies the Module
+- GND is the ground pin
+- SCL is the serial clock pin for the i2c interface
+- SDA is the serial data pin for the i2c interface
+- XDA is the external data pin for sensors such as magnetometer
+- XCL is the external clock pin.
+- AD0 changes the i2c address so that it does not cause conflict during communication. 
+- INT is the OUTPUT Pin, like a response pin that can shake, tap, etc. 
+3) Methods of Rotation
+- X-axis = Roll
+- Y-axis = Pitch
+- Z-axis = Yaw
+4) Coriolis Effect
+Basic Explanation:
+- "Alright, imagine you're spinning on a merry-go-round at the playground. If you try to throw a ball straight to your friend across from you, something weird happens—the ball doesn’t go straight! It seems to curve to the side. Why? The merry-go-round is spinning, and you’re in a moving system.
+- That’s how the Coriolis effect works, but instead of a merry-go-round, it happens on Earth because the planet is spinning.
+Real Life Explanation + How It works:
+- Picture*
+
 
