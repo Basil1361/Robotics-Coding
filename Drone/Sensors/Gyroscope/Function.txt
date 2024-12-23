@@ -1,0 +1,3 @@
+# Gyrometer: How does it work
+# Overview:
+The gyroscope measures 
